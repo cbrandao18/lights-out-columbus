@@ -873,8 +873,8 @@
   }
 
   // ---- Ask in Discord -----------------------------------------------------
-  // With a channel webhook saved on this phone, posts straight to the ID-help channel.
-  // Otherwise hands the photos and question to the share sheet, so the volunteer posts as themselves.
+  // Hands the photos and question to the share sheet, so the volunteer posts as themselves.
+  // A channel webhook (not set up yet) would post straight to the ID-help channel instead.
   var WEBHOOK_RE = /^https:\/\/(?:canary\.|ptb\.)?discord(?:app)?\.com\/api\/webhooks\/\d+\/[\w-]+$/;
   function webhook() { var w = store("webhook") || ""; return WEBHOOK_RE.test(w) ? w : ""; }
   function askText(r) {
@@ -902,7 +902,7 @@
         if (!r.ok) throw new Error(r.status);
         toast("Posted to the ID-help channel.");
       }).catch(function () {
-        toast("Couldn't post to Discord. Check the webhook link under About this app.");
+        toast("Couldn't post to Discord. Try again in a moment.");
       }).finally(function () { b.disabled = false; b.textContent = "Not sure? Ask in Discord"; });
       return;
     }
@@ -917,13 +917,6 @@
     if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(ok, function () { toast(text); });
     else toast(text);
   }
-  function renderWebhook() {
-    var w = webhook();
-    $("webhook").value = w ? "Saved" : "";
-    $("webhookHint").textContent = w ? "Ask in Discord posts straight to the ID-help channel. Clear the box and tap Save to stop." :
-      "Without this, Ask in Discord opens your phone's share sheet so you can pick Discord and the channel yourself.";
-  }
-
   // ---- Wiring -------------------------------------------------------------
   function updateNet() {
     var n = $("net");
@@ -940,14 +933,6 @@
   });
   $("gps").addEventListener("click", useGps);
   $("askDiscord").addEventListener("click", askDiscord);
-  $("webhook").addEventListener("focus", function () { if ($("webhook").value === "Saved") $("webhook").value = ""; });
-  $("webhookSave").addEventListener("click", function () {
-    var v = $("webhook").value.trim();
-    if (v === "Saved") return;
-    if (v && !WEBHOOK_RE.test(v)) { toast("That doesn't look like a Discord webhook link."); return; }
-    try { if (v) localStorage.setItem("webhook", v); else localStorage.removeItem("webhook"); } catch (e) { /* storage blocked */ }
-    renderWebhook(); toast(v ? "Discord channel saved on this phone." : "Discord channel removed.");
-  });
   $("lightBtn").addEventListener("click", function () { if ($("lightBtn").getAttribute("aria-pressed") === "true") lightOff(); else lightOn(); });
   $("lightOff").addEventListener("click", lightOff);
   $("timeNow").addEventListener("click", function () { cur.time = nowTime(); $("time").value = cur.time; save(); });
@@ -1005,12 +990,6 @@
   if ("serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("sw.js").catch(function () {});
 
   applyTheme(); updateNet(); refreshDomains(); renderHome(); loadResources();
-  var hookParam = params.get("discord");
-  if (hookParam && WEBHOOK_RE.test(hookParam)) {
-    store("webhook", hookParam); toast("Discord ID-help channel saved on this phone.");
-    try { history.replaceState(null, "", location.pathname); } catch (e) { /* keep the URL */ }
-  }
-  renderWebhook();
   if (location.hash === "#resources" || store("tab") === "res") show("res");
   else if (location.hash === "#shift" || store("tab") === "shift") show("shift");
 })();
