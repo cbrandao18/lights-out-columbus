@@ -1,0 +1,528 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Collision Log</title>
+<meta name="description" content="Field log for Lights Out Columbus bird collision surveys. Sends to the Lights Out Columbus v2.0 survey.">
+<meta name="theme-color" content="#17201c">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Collision Log">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=JetBrains+Mono:wght@500;700&display=swap">
+<link rel="stylesheet" href="vendor/leaflet/leaflet.css">
+<style>
+/* Layout: one narrow column of big tap targets, sticky bottom action bar, built for one-handed use at dawn. */
+:root {
+  --bg: #f3f5f1;
+  --surface: #ffffff;
+  --ink: #17201c;
+  --muted: #5b6862;
+  --line: #d7ddd8;
+  --accent: #e2b007;      /* warbler yellow */
+  --accent-ink: #1d1a0a;
+  --good: #2f7d4f;
+  --warn: #b26a00;
+  --bad: #b3261e;
+  --chip: #e8ece8;
+  --font-display: "Bricolage Grotesque", "Avenir Next", system-ui, sans-serif;
+  --font-body: "Atkinson Hyperlegible", system-ui, -apple-system, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --r: 12px;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #111814; --surface: #1a231e; --ink: #ecf0ec; --muted: #9aa8a0; --line: #2d3a33;
+    --accent: #f2c230; --accent-ink: #1d1a0a; --good: #5cc488; --warn: #f0a640; --bad: #ff7b6e; --chip: #24302a;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #111814; --surface: #1a231e; --ink: #ecf0ec; --muted: #9aa8a0; --line: #2d3a33;
+  --accent: #f2c230; --accent-ink: #1d1a0a; --good: #5cc488; --warn: #f0a640; --bad: #ff7b6e; --chip: #24302a;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--bg); color: var(--ink); font: 17px/1.45 var(--font-body);
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 96px);
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  -webkit-tap-highlight-color: transparent;
+}
+[hidden] { display: none !important; }
+img { max-width: 100%; }
+.wrap { max-width: 640px; margin: 0 auto; }
+header.top { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-block: 14px 8px; }
+h1 { font: 800 1.6rem/1.1 var(--font-display); margin: 0; letter-spacing: -0.01em; text-wrap: balance; }
+h1 small { display: block; font: 500 0.78rem var(--font-body); color: var(--muted); letter-spacing: 0.04em; text-transform: uppercase; margin-top: 2px; }
+h2 { font: 700 1.15rem var(--font-display); margin: 0; }
+.net { font-size: 0.8rem; padding: 4px 10px; border-radius: 99px; background: var(--chip); color: var(--muted); white-space: nowrap; }
+.net.off { background: var(--warn); color: #fff; }
+
+button, .btn { font: 700 1rem var(--font-body); border: 0; border-radius: var(--r); padding: 14px 16px; min-height: 52px; cursor: pointer; background: var(--chip); color: var(--ink); }
+button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.primary { background: var(--accent); color: var(--accent-ink); }
+.ghost { background: transparent; border: 2px solid var(--line); }
+.danger { color: var(--bad); }
+button:disabled { opacity: 0.5; }
+
+.list { display: grid; gap: 10px; margin-top: 12px; }
+.rec { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 12px 14px; display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; text-align: left; width: 100%; min-height: 0; font-weight: 400; }
+.rec .id { font: 700 1.05rem var(--font-mono); }
+.rec .meta { color: var(--muted); font-size: 0.9rem; grid-column: 1 / -1; }
+.pill { font-size: 0.75rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; padding: 3px 9px; border-radius: 99px; align-self: start; }
+.pill.draft { background: var(--chip); color: var(--muted); }
+.pill.sent { background: color-mix(in srgb, var(--good) 18%, transparent); color: var(--good); }
+.pill.partial { background: color-mix(in srgb, var(--warn) 20%, transparent); color: var(--warn); }
+.empty { color: var(--muted); padding: 28px 4px; text-align: center; }
+
+form { display: grid; gap: 22px; margin-top: 8px; }
+.field { display: grid; gap: 8px; min-width: 0; }
+.field > label, .field > .lab { font-weight: 700; }
+.lab .req { color: var(--bad); }
+.hint { color: var(--muted); font-size: 0.88rem; margin: 0; }
+input[type=text], input[type=date], input[type=time], textarea, .search {
+  font: 400 1.05rem var(--font-body); color: var(--ink); background: var(--surface);
+  border: 2px solid var(--line); border-radius: var(--r); padding: 12px 14px; width: 100%; min-height: 52px;
+}
+textarea { min-height: 90px; resize: vertical; }
+.idbox { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
+.idbox input { font: 700 1.5rem var(--font-mono); letter-spacing: 0.06em; font-variant-numeric: tabular-nums; }
+.idcard { background: var(--surface); border: 2px dashed var(--accent); border-radius: var(--r); padding: 12px; display: grid; gap: 8px; }
+
+.seg { display: flex; flex-wrap: wrap; gap: 8px; }
+.seg button { flex: 1 1 auto; font-weight: 700; min-width: 64px; background: var(--surface); border: 2px solid var(--line); }
+.seg button[aria-pressed=true] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+
+.picker { position: relative; }
+.picked { display: flex; align-items: center; justify-content: space-between; gap: 8px; background: var(--surface); border: 2px solid var(--ink); border-radius: var(--r); padding: 10px 10px 10px 14px; min-height: 52px; }
+.picked span { min-width: 0; overflow-wrap: anywhere; font-weight: 700; }
+.picked button { min-height: 40px; padding: 8px 12px; }
+.opts { display: grid; gap: 4px; margin-top: 6px; max-height: 300px; overflow-y: auto; border-radius: var(--r); }
+.opts button { text-align: left; background: var(--surface); border: 1px solid var(--line); font-weight: 400; min-height: 46px; padding: 10px 14px; }
+.opts button mark { background: color-mix(in srgb, var(--accent) 45%, transparent); color: inherit; border-radius: 3px; }
+
+.loc { display: grid; gap: 8px; }
+#map { height: 260px; border-radius: var(--r); border: 2px solid var(--line); z-index: 0; }
+.coords { font: 500 0.88rem var(--font-mono); color: var(--muted); }
+
+.photos { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; }
+.ph { position: relative; aspect-ratio: 1; border-radius: 10px; overflow: hidden; background: var(--chip); max-width: 100%; }
+.ph img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.ph .x { position: absolute; top: 4px; right: 4px; min-height: 0; width: 32px; height: 32px; padding: 0; border-radius: 99px; background: rgba(0,0,0,0.65); color: #fff; font-size: 18px; line-height: 32px; }
+.ph .st { position: absolute; left: 4px; bottom: 4px; font-size: 0.7rem; font-weight: 700; padding: 2px 6px; border-radius: 6px; background: rgba(0,0,0,0.65); color: #fff; }
+.addph { display: flex; gap: 8px; flex-wrap: wrap; }
+.addph label { flex: 1 1 140px; text-align: center; }
+.addph input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+
+.bar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; background: color-mix(in srgb, var(--bg) 92%, transparent); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); border-top: 1px solid var(--line);
+  padding: 10px max(16px, env(safe-area-inset-right, 0px)) calc(10px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); }
+.bar .wrap { display: flex; gap: 8px; }
+.bar button { flex: 1; }
+
+.sheet { position: fixed; inset: 0; z-index: 30; background: rgba(0,0,0,0.5); display: flex; align-items: flex-end; }
+.sheet .panel { background: var(--bg); width: 100%; max-height: 90vh; overflow-y: auto; border-radius: 18px 18px 0 0;
+  padding: 18px max(16px, env(safe-area-inset-right, 0px)) calc(18px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); }
+.sheet .panel > .wrap { display: grid; gap: 14px; }
+.summary { display: grid; grid-template-columns: auto 1fr; gap: 6px 12px; font-size: 0.95rem; }
+.summary dt { color: var(--muted); }
+.summary dd { margin: 0; overflow-wrap: anywhere; }
+.log { font: 500 0.85rem var(--font-mono); background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 10px; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 220px; overflow-y: auto; }
+.row { display: flex; gap: 8px; flex-wrap: wrap; }
+.row > * { flex: 1 1 140px; }
+.toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(96px + env(safe-area-inset-bottom, 0px)); z-index: 40; background: var(--ink); color: var(--bg); padding: 10px 16px; border-radius: 99px; font-weight: 700; max-width: calc(100% - 32px); }
+.err { color: var(--bad); font-weight: 700; }
+details summary { cursor: pointer; color: var(--muted); }
+
+.tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; background: var(--chip); border-radius: var(--r); padding: 4px; margin-bottom: 4px; }
+.tabs button { min-height: 44px; padding: 8px; background: transparent; }
+.tabs button[aria-selected=true] { background: var(--surface); box-shadow: 0 1px 3px rgba(0,0,0,0.12); }
+#resources { display: grid; gap: 14px; margin-top: 12px; }
+.logo { background: #fff; border-radius: var(--r); padding: 10px 14px; border: 1px solid var(--line); }
+.logo img { display: block; width: 100%; height: auto; }
+.quick { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; }
+.quick a { display: flex; flex-direction: column; justify-content: center; gap: 2px; min-height: 64px; padding: 10px 14px; border-radius: var(--r); background: var(--surface); border: 2px solid var(--line); color: var(--ink); text-decoration: none; font-weight: 700; }
+.quick a span { font-weight: 400; font-size: 0.82rem; color: var(--muted); }
+.quick a.hot { border-color: var(--accent); }
+.res { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 0; }
+.res > summary { list-style: none; padding: 14px 16px; font: 700 1.08rem var(--font-display); color: var(--ink); display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.res > summary::-webkit-details-marker { display: none; }
+.res > summary::after { content: "+"; font: 700 1.3rem var(--font-body); color: var(--muted); }
+.res[open] > summary::after { content: "–"; }
+.res .body { padding: 0 16px 16px; display: grid; gap: 12px; min-width: 0; }
+.res h3 { font: 700 1rem var(--font-body); margin: 6px 0 0; }
+.res p, .res ul, .res ol { margin: 0; }
+.res ul, .res ol { padding-left: 1.2em; display: grid; gap: 4px; }
+.res a { color: var(--ink); text-decoration-color: var(--accent); text-decoration-thickness: 2px; text-underline-offset: 3px; }
+.res figure { margin: 0; display: grid; gap: 6px; }
+.res figure img { border-radius: 8px; border: 1px solid var(--line); width: 100%; height: auto; background: #fff; }
+.res figcaption { font-size: 0.85rem; color: var(--muted); }
+.addr { font: 500 0.95rem var(--font-mono); background: var(--chip); border-radius: 8px; padding: 8px 10px; overflow-wrap: anywhere; }
+.links { display: flex; flex-wrap: wrap; gap: 8px; }
+.links a { display: inline-flex; align-items: center; min-height: 44px; padding: 8px 14px; border-radius: 99px; background: var(--chip); text-decoration: none; font-weight: 700; font-size: 0.92rem; }
+.legend { display: grid; gap: 8px; }
+.legend div { display: grid; grid-template-columns: 22px 1fr; gap: 10px; align-items: start; }
+.sw { width: 22px; height: 22px; border-radius: 5px; border: 1px solid var(--line); margin-top: 2px; }
+.stops { overflow-x: auto; }
+.stops table { border-collapse: collapse; width: 100%; font-size: 0.9rem; }
+.stops td, .stops th { text-align: left; padding: 5px 8px 5px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+.stops th { color: var(--muted); font-weight: 700; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.04em; }
+.stops td:first-child { font: 700 0.85rem var(--font-mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.stops td:nth-child(2) { white-space: nowrap; }
+.callout { border-left: 4px solid var(--accent); padding: 8px 12px; background: color-mix(in srgb, var(--accent) 10%, transparent); border-radius: 0 8px 8px 0; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chips button { min-height: 40px; padding: 8px 12px; border-radius: 99px; font-weight: 700; font-size: 0.9rem; background: var(--surface); border: 2px solid var(--line); }
+.chips .lbl { width: 100%; font-size: 0.78rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; font-weight: 700; }
+.compass { background: var(--surface); border: 2px solid var(--accent); border-radius: var(--r); padding: 14px; display: grid; gap: 12px; justify-items: center; text-align: center; }
+.rose { position: relative; width: 200px; height: 200px; max-width: 100%; }
+.rose svg { width: 100%; height: 100%; display: block; }
+.big-dir { font: 800 1.6rem var(--font-display); margin: 0; }
+.compass .row { width: 100%; }
+.timebox { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px; }
+.row > .field { min-width: 0; }
+input[type=date], input[type=time] { min-width: 0; -webkit-appearance: none; appearance: none; }
+.timebox button { min-width: 64px; padding: 8px 10px; }
+.tabs { grid-template-columns: 1fr 1fr 1fr; }
+#shift { display: grid; gap: 16px; margin-top: 12px; }
+.stopl { display: grid; gap: 6px; }
+.stop { display: grid; grid-template-columns: 34px 1fr auto; gap: 10px; align-items: center; background: var(--surface); border: 2px solid var(--line); border-radius: var(--r); padding: 10px 12px; min-height: 52px; text-align: left; font-weight: 400; width: 100%; }
+.stop .n { font: 700 0.85rem var(--font-mono); color: var(--muted); }
+.stop .ck { width: 26px; height: 26px; border-radius: 7px; border: 2px solid var(--line); display: grid; place-items: center; font-weight: 800; }
+.stop[aria-pressed=true] { border-color: var(--good); }
+.stop[aria-pressed=true] .ck { background: var(--good); border-color: var(--good); color: var(--bg); }
+.stop[aria-pressed=true] .t { color: var(--muted); }
+.stop .birds { font-size: 0.8rem; font-weight: 700; color: var(--warn); }
+.progress { height: 10px; background: var(--chip); border-radius: 99px; overflow: hidden; }
+.progress div { height: 100%; background: var(--good); width: 0; transition: width .2s; }
+.stat { display: flex; flex-wrap: wrap; gap: 6px 16px; color: var(--muted); font-size: 0.95rem; }
+.stat b { color: var(--ink); }
+textarea.summary-out { font: 500 0.88rem var(--font-mono); min-height: 180px; }
+.hdr-r { display: flex; align-items: center; gap: 8px; }
+.lightbtn { min-height: 40px; padding: 8px 14px; border-radius: 99px; background: var(--accent); color: var(--accent-ink); font-size: 0.9rem; }
+.lightbtn[aria-pressed=true] { background: var(--ink); color: var(--bg); }
+.screenlight { position: fixed; inset: 0; z-index: 50; background: #fff; color: #333; display: grid; place-content: end center; justify-items: center; gap: 12px; padding: 24px max(16px, env(safe-area-inset-right, 0px)) calc(32px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); text-align: center; }
+.screenlight button { background: #222; color: #fff; min-width: 200px; }
+@media (prefers-reduced-motion: no-preference) { .sheet .panel { animation: up .18s ease-out; } @keyframes up { from { transform: translateY(30px); opacity: .6; } } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1>Collision Log<small>Lights Out Columbus</small></h1>
+    <div class="hdr-r"><button type="button" class="lightbtn" id="lightBtn" aria-label="Light">Light</button><span class="net" id="net">Online</span></div>
+  </header>
+  <div class="tabs" role="tablist">
+    <button type="button" role="tab" id="tabLog" aria-selected="true">My birds</button>
+    <button type="button" role="tab" id="tabShift" aria-selected="false">Shift</button>
+    <button type="button" role="tab" id="tabRes" aria-selected="false">Resources</button>
+  </div>
+
+  <!-- HOME -->
+  <section id="home">
+    <div class="list" id="records"></div>
+    <details style="margin-top:24px">
+      <summary>About this app</summary>
+      <p class="hint" style="margin-top:8px">Each record is sent to the same place as the Lights Out Columbus v2.0 survey in Survey123. Records and photos are kept on this phone until they are sent, so you can fill one in without signal and send it later. If a photo fails to upload, only that photo is retried; the bird is never entered twice.</p>
+      <p class="hint" id="domainsrc"></p>
+      <div class="row" style="margin-top:8px"><button type="button" class="ghost" id="themeBtn">Theme: match phone</button><button type="button" class="ghost" id="clearSent">Remove sent records from this phone</button></div>
+    </details>
+  </section>
+
+  <!-- SHIFT -->
+  <section id="shift" hidden>
+    <div class="field">
+      <span class="lab">Route</span>
+      <div class="seg" id="routeSeg"></div>
+    </div>
+    <div class="stat" id="shiftStat"></div>
+    <div class="progress" aria-hidden="true"><div id="shiftBar"></div></div>
+    <div class="row"><button type="button" class="primary" id="shiftStart">Start shift</button><button type="button" class="ghost" id="shiftEnd">End shift</button></div>
+    <div class="stopl" id="stops"></div>
+    <div class="field">
+      <span class="lab">Summary for Discord</span>
+      <textarea class="summary-out" id="summaryOut" readonly></textarea>
+      <div class="row"><button type="button" class="primary" id="copySummary">Copy summary</button></div>
+      <p class="hint">Paste it into the daily thread on Discord.</p>
+    </div>
+    <div class="row"><button type="button" class="ghost danger" id="shiftReset">Clear today's checklist</button></div>
+  </section>
+
+  <!-- RESOURCES -->
+  <section id="resources" hidden>
+    <div class="logo"><img src="resources/logo.png" alt="Lights Out Columbus, bird collision monitoring volunteer" width="1237" height="697"></div>
+
+    <div class="quick">
+      <a href="https://www.google.com/maps/d/u/2/edit?mid=1XDbPms_MtWL6VDtREtN_ueRk7hpgfq8&amp;usp=sharing" target="_blank" rel="noopener">Route map<span>Both routes, Google Maps</span></a>
+      <a href="https://youtu.be/40FDd_6umb8" target="_blank" rel="noopener">Training video<span>Spring 2026, YouTube</span></a>
+      <a href="cards.html" target="_blank" rel="noopener">Specimen tags<span>Print with QR codes</span></a>
+    </div>
+
+    <details class="res" id="res-schedule">
+      <summary>Reading the schedule</summary>
+      <div class="body">
+        <div class="legend">
+          <div><span class="sw" style="background:#ffe14d"></span><p><b>Your name in yellow:</b> you're the transport person for that shift.</p></div>
+          <div><span class="sw" style="background:#ff6b5e"></span><p><b>Cell in red:</b> only one person is signed up, and the survey needs two. These shifts are the highest priority to fill.</p></div>
+          <div><span class="sw" style="background:var(--surface)"></span><p><b>No one highlighted:</b> either several people can transport, or no one can. Check with your shift partner that morning about who takes the birds to the Ohio Wildlife Center Rehabilitation Clinic or Grange Insurance Audubon Center.</p></div>
+        </div>
+        <p class="hint">The schedule link is shared on Discord.</p>
+      </div>
+    </details>
+
+    <details class="res" id="res-parking">
+      <summary>Parking</summary>
+      <div class="body">
+        <h3>Broad St. route: CCAD large lot</h3>
+        <p>Volunteers still park at CCAD, but in the larger lot on the corner of E. Broad St. and Cleveland Ave. (changed fall 2024). The large star is the new lot; the small star is where volunteers parked before.</p>
+        <p class="addr">60 Cleveland Ave, Columbus, OH 43215</p>
+        <div class="links">
+          <a href="https://maps.apple.com/?q=60+Cleveland+Ave,+Columbus,+OH+43215" target="_blank" rel="noopener">Apple Maps</a>
+          <a href="https://www.google.com/maps/search/?api=1&amp;query=60+Cleveland+Ave%2C+Columbus%2C+OH+43215" target="_blank" rel="noopener">Google Maps</a>
+        </div>
+        <figure><img src="resources/parking-broad-st.jpg" alt="Aerial view of Cleveland Ave. and Broad St. with a large star on the new CCAD lot and a small star on the old spot" width="587" height="407" loading="lazy"></figure>
+
+        <h3>Nationwide route: FedEx Office lot</h3>
+        <p>Park at the FedEx Office Print &amp; Ship Center (changed fall 2024). Use the east side of the lot, near Pearl St., along the building where the star is.</p>
+        <p class="addr">180 N High St, Columbus, OH 43215</p>
+        <div class="links">
+          <a href="https://maps.apple.com/?q=180+N+High+St,+Columbus,+OH+43215" target="_blank" rel="noopener">Apple Maps</a>
+          <a href="https://www.google.com/maps/search/?api=1&amp;query=180+N+High+St%2C+Columbus%2C+OH+43215" target="_blank" rel="noopener">Google Maps</a>
+        </div>
+        <figure><img src="resources/parking-nationwide.jpg" alt="Aerial view of the FedEx Office lot at N High St. and E. Spring St. with a star at the east side of the building" width="542" height="452" loading="lazy"></figure>
+      </div>
+    </details>
+
+    <details class="res" id="res-routes">
+      <summary>Routes</summary>
+      <div class="body">
+        <div class="links"><a href="https://www.google.com/maps/d/u/2/edit?mid=1XDbPms_MtWL6VDtREtN_ueRk7hpgfq8&amp;usp=sharing" target="_blank" rel="noopener">Both routes in Google Maps</a></div>
+
+        <h3>Broad St. route</h3>
+        <figure>
+          <a href="resources/broad-st-route-1.jpg" target="_blank" rel="noopener"><img src="resources/broad-st-route-1.jpg" alt="Broad St. route map with numbered buildings" width="1800" height="900" loading="lazy"></a>
+          <figcaption>Tap the map to zoom. <a href="resources/broad-st-route.pdf" target="_blank" rel="noopener">Route PDF</a></figcaption>
+        </figure>
+        <div class="stops">
+          <table>
+            <thead><tr><th>#</th><th>Address</th><th>Building</th></tr></thead>
+            <tbody>
+              <tr><td>1</td><td>CCAD</td><td>CCAD</td></tr>
+              <tr><td>2</td><td>275 E Broad</td><td>State Teachers Retirement System</td></tr>
+              <tr><td>3</td><td>250 E Broad</td><td>Midland (and courtyard)</td></tr>
+              <tr><td>4</td><td>180 E Broad</td><td>Hexion</td></tr>
+              <tr><td>5</td><td>136 E Broad</td><td>Empire Building / Athletic Club</td></tr>
+              <tr><td>6</td><td>100 E Broad</td><td>Chase; Lexi's on Third</td></tr>
+              <tr><td>7</td><td>88 E Broad</td><td>Key Bank</td></tr>
+              <tr><td>8</td><td>30 E Broad</td><td>Rhodes Tower</td></tr>
+              <tr><td>9/10</td><td>10 W Broad</td><td>US Bank</td></tr>
+              <tr><td>10</td><td>8 E Broad</td><td>8 on the Square</td></tr>
+              <tr><td>11</td><td>50 W Broad</td><td>LeVeque Tower (and walkway in alley)</td></tr>
+              <tr><td>11</td><td>34 W Broad</td><td>Palace Theater</td></tr>
+              <tr><td>12</td><td>37 W Broad</td><td>Huntington Plaza / Gerlach CPA</td></tr>
+              <tr><td>13</td><td>41 S High</td><td>Huntington Bank; Porter Wright; ZOUP!</td></tr>
+              <tr><td>13</td><td>21 W Broad</td><td>Wyandotte Building</td></tr>
+              <tr><td>14</td><td>77 S High</td><td>Riffe Center</td></tr>
+              <tr><td>15</td><td></td><td>State House</td></tr>
+              <tr><td>16</td><td>125 E Broad</td><td>Trinity Church</td></tr>
+              <tr><td>17</td><td>155 E Broad</td><td>PNC</td></tr>
+              <tr><td>18</td><td>181 E Broad</td><td>Columbus Club</td></tr>
+              <tr><td>19</td><td>225 E Broad</td><td>Ohio Education Association</td></tr>
+              <tr><td>20</td><td>257 E Broad</td><td>Catholic Foundation</td></tr>
+              <tr><td>21/22</td><td>275 E Broad</td><td>STRS</td></tr>
+              <tr><td>23/24</td><td>303 E Broad</td><td>Capital University</td></tr>
+              <tr><td>25</td><td>395 E Broad</td><td>US Citizenship &amp; Immigration</td></tr>
+              <tr><td>26</td><td>413 E Broad</td><td>UMC Family Services</td></tr>
+              <tr><td>28</td><td>471 E Broad</td><td>Encova Insurance</td></tr>
+              <tr><td>29</td><td>480 E Broad</td><td>Columbus Museum of Art</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>Nationwide route (about 3.4 miles)</h3>
+        <figure>
+          <a href="resources/nationwide-route-1.jpg" target="_blank" rel="noopener"><img src="resources/nationwide-route-1.jpg" alt="Nationwide route map with seven numbered areas" width="1500" height="844" loading="lazy"></a>
+          <figcaption>Tap the map to zoom. <a href="resources/nationwide-route.pdf" target="_blank" rel="noopener">Route PDF</a></figcaption>
+        </figure>
+        <p><b>Areas to pay close attention to:</b></p>
+        <ol>
+          <li>Nationwide atrium</li>
+          <li>Nationwide Retirement Solutions</li>
+          <li>Columbia Gas</li>
+          <li>Sunny St Café / Athletic Club</li>
+          <li>McFerson Commons</li>
+          <li>Marconi Garage</li>
+          <li>Sensenbrenner Park</li>
+        </ol>
+        <h3>Building names in the survey</h3>
+        <ul>
+          <li><b>Nationwide Arena</b> also covers the box office and Tim Hortons.</li>
+          <li><b>Nationwide Plaza</b> now includes the atrium. William Green Building is still separate.</li>
+          <li><b>Nationwide Marconi</b> is the old Marconi garage. Nationwide CoOperative is its own building.</li>
+          <li><b>Burnham Square Condos</b> are split into West, North and South.</li>
+          <li>Not in the list? Pick <b>Other</b> and type the name and address.</li>
+        </ul>
+      </div>
+    </details>
+
+    <details class="res" id="res-birds">
+      <summary>Finding a bird</summary>
+      <div class="body">
+        <p>Log every window-collision bird or bat: dead, live, or one that got away. One record per bird.</p>
+        <h3>Live birds</h3>
+        <p>Write the unique ID, date, time and address on the bag. That helps with admission at the hospital. The shift's transport person takes them to the Ohio Wildlife Center Rehabilitation Clinic or the Grange Insurance Audubon Center.</p>
+        <div class="links">
+          <a href="https://www.google.com/maps/search/?api=1&amp;query=Ohio+Wildlife+Center+Rehabilitation+Clinic+Columbus+OH" target="_blank" rel="noopener">Ohio Wildlife Center</a>
+          <a href="https://www.google.com/maps/search/?api=1&amp;query=Grange+Insurance+Audubon+Center+Columbus+OH" target="_blank" rel="noopener">Grange Audubon Center</a>
+        </div>
+        <h3>Dead birds</h3>
+        <p>Write the unique ID and date on the bag or specimen tag.</p>
+        <h3>Injured Rock Pigeons</h3>
+        <div class="callout">
+          <p>City Bird Rehab accepts live, injured Rock Pigeons found downtown. Message them on Facebook first. They also take porch drop-offs, but send a message so they know it's there.</p>
+        </div>
+        <p class="addr">3105 Norwood St, Columbus, OH 43224</p>
+        <div class="links">
+          <a href="https://www.facebook.com/share/1B5XVgp2Dh/" target="_blank" rel="noopener">City Bird Rehab on Facebook</a>
+          <a href="https://maps.apple.com/?q=3105+Norwood+St,+Columbus,+OH+43224" target="_blank" rel="noopener">Apple Maps</a>
+          <a href="https://www.google.com/maps/search/?api=1&amp;query=3105+Norwood+St%2C+Columbus%2C+OH+43224" target="_blank" rel="noopener">Google Maps</a>
+        </div>
+        <p class="hint">Ohio Wildlife Center does not rehabilitate non-native species like Rock Pigeons, but will accept them for humane euthanasia.</p>
+      </div>
+    </details>
+
+    <details class="res" id="res-docs">
+      <summary>Printouts and guides</summary>
+      <div class="body">
+        <div class="links">
+          <a href="cards.html" target="_blank" rel="noopener">Specimen tags with QR codes (print)</a>
+          <a href="resources/specimen-tag.pdf" target="_blank" rel="noopener">Blank specimen tags (PDF)</a>
+          <a href="resources/survey123-tutorial.pdf" target="_blank" rel="noopener">Survey123 tutorial</a>
+          <a href="https://youtu.be/40FDd_6umb8" target="_blank" rel="noopener">Spring 2026 training video</a>
+        </div>
+        <p class="hint">Tips from the tutorial: when you finish, close the app so GPS stops draining your battery. For two birds at one spot, use <b>Copy to a new bird here</b> and give it a new ID.</p>
+      </div>
+    </details>
+  </section>
+
+  <!-- FORM -->
+  <section id="edit" hidden>
+    <form id="f" novalidate>
+      <div class="field idcard">
+        <label for="random_int">Unique specimen ID for bag <span class="req">*</span></label>
+        <div class="idbox">
+          <input type="text" id="random_int" inputmode="numeric" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="e.g. 48213">
+          <button type="button" id="genId" class="ghost">New ID</button>
+        </div>
+        <p class="hint">Type the ID from the card in the bag, or tap New ID and write it on the bag. With a QR tag, scan it with the camera, or just include the tag in a photo.</p>
+      </div>
+
+      <div class="field">
+        <span class="lab">Found as <span class="req">*</span></span>
+        <div class="seg" data-field="found_as" id="seg_found_as"></div>
+      </div>
+
+      <div class="field">
+        <span class="lab">Species (common name) <span class="req">*</span></span>
+        <div class="picker" id="pick_species_common_name"></div>
+        <input type="text" id="species_common_name_other" placeholder="Type the species" hidden>
+      </div>
+
+      <div class="row">
+        <div class="field"><label for="_date">Date found <span class="req">*</span></label><input type="date" id="_date"></div>
+        <div class="field"><label for="time">Time found</label><div class="timebox"><input type="time" id="time"><button type="button" class="ghost" id="timeNow">Now</button></div></div>
+      </div>
+
+      <div class="field">
+        <span class="lab">Building name and address</span>
+        <div class="chips" id="bldSuggest" hidden></div>
+        <div class="picker" id="pick_building_name_and_address"></div>
+        <input type="text" id="building_name_and_address_other" placeholder="Building name and address" hidden>
+      </div>
+
+      <div class="field">
+        <span class="lab">Which side of the building was the bird found?</span>
+        <div class="seg" data-field="which_side_of_the_building_was" id="seg_which_side_of_the_building_was"></div>
+        <button type="button" class="ghost" id="compassBtn">Use compass</button>
+        <div class="compass" id="compass" hidden>
+          <p class="hint">Stand at the bird and point the top of your phone at the window. Hold it flat.</p>
+          <div class="rose"><svg viewBox="0 0 200 200" aria-hidden="true">
+            <g id="roseCard">
+              <circle cx="100" cy="100" r="92" fill="none" stroke="var(--line)" stroke-width="3"></circle>
+              <g font-family="var(--font-display)" font-weight="800" font-size="20" text-anchor="middle" fill="var(--muted)">
+                <text x="100" y="30" fill="var(--bad)">N</text><text x="176" y="107">E</text><text x="100" y="185">S</text><text x="24" y="107">W</text>
+              </g>
+            </g>
+            <path d="M100 22 L112 60 L88 60 Z" fill="var(--muted)"></path>
+            <text x="100" y="78" text-anchor="middle" font-size="11" fill="var(--muted)" font-family="var(--font-body)">phone</text>
+            <path d="M100 178 L114 132 L86 132 Z" fill="var(--accent)"></path>
+            <text x="100" y="126" text-anchor="middle" font-size="11" fill="var(--ink)" font-family="var(--font-body)" font-weight="700">window faces</text>
+          </svg></div>
+          <p class="big-dir" id="compassDir">Waiting for compass…</p>
+          <p class="hint" id="compassDeg"></p>
+          <div class="row"><button type="button" class="ghost" id="compassCancel">Cancel</button><button type="button" class="primary" id="compassSet" disabled>Use this</button></div>
+        </div>
+      </div>
+
+      <div class="field">
+        <span class="lab">Percent glass estimate on building facade</span>
+        <div class="seg" data-field="percent_glass_on_building_facad" id="seg_percent_glass_on_building_facad"></div>
+      </div>
+
+      <div class="field loc">
+        <span class="lab">Location <span class="req">*</span></span>
+        <button type="button" id="gps" class="primary">Use my current location</button>
+        <div id="map"></div>
+        <div class="coords" id="coords">No location yet. Tap the button, or tap the map to drop a pin.</div>
+      </div>
+
+      <div class="field">
+        <span class="lab">Photos</span>
+        <div class="photos" id="photos"></div>
+        <div class="addph">
+          <label class="btn ghost" for="pickLib">Choose photos<input type="file" id="pickLib" accept="image/*" multiple></label>
+          <label class="btn ghost" for="pickCam">Take photo<input type="file" id="pickCam" accept="image/*" capture="environment"></label>
+        </div>
+        <p class="hint">Photos are converted to standard JPEG on the phone before upload, so iPhone HEIC photos work.</p>
+      </div>
+
+      <div class="field"><label for="names">Name (first and last)</label><input type="text" id="names" autocomplete="name"><p class="hint">Remembered for your next record.</p></div>
+      <div class="field"><label for="notes">Notes</label><textarea id="notes"></textarea></div>
+
+      <div class="row">
+        <button type="button" class="ghost" id="dupBtn">Copy to a new bird here</button>
+        <button type="button" class="ghost danger" id="delBtn">Delete this record</button>
+      </div>
+    </form>
+  </section>
+</div>
+
+<div class="bar">
+  <div class="wrap" id="barHome"><button type="button" class="primary" id="newBtn">+ New bird</button></div>
+  <div class="wrap" id="barEdit" hidden>
+    <button type="button" class="ghost" id="backBtn">Save &amp; close</button>
+    <button type="button" class="primary" id="reviewBtn">Review &amp; send</button>
+  </div>
+</div>
+
+<div class="sheet" id="sheet" hidden>
+  <div class="panel"><div class="wrap" id="sheetBody"></div></div>
+</div>
+<div class="toast" id="toast" hidden></div>
+<div class="screenlight" id="screenLight" hidden><p>Screen light. Turn your brightness all the way up.</p><button type="button" id="lightOff">Turn off</button></div>
+
+<script src="vendor/leaflet/leaflet.js"></script>
+<script src="vendor/jsqr/jsQR.js"></script>
+<script src="domains.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
