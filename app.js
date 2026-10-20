@@ -95,7 +95,8 @@
       if (CODED.every(function (k) { return lists[k] && lists[k].length; })) {
         domains = lists; domainSource = "survey, checked " + new Date().toLocaleDateString();
         store("domains", JSON.stringify({ at: Date.now(), lists: lists }));
-        $("domainsrc").textContent = "Answer lists: " + domainSource + ".";
+        $("swipeHint").hidden = !all.some(function (r) { return r.status !== "sent" && r.status !== "partial"; });
+      $("domainsrc").textContent = "Answer lists: " + domainSource + ".";
       }
     }).catch(function () { /* offline or blocked: keep what we have */ });
   }
@@ -130,6 +131,43 @@
   function locked() { return cur && (cur.status === "sent" || cur.status === "partial"); }
 
   // ---- Home list ----------------------------------------------------------
+  // Drafts on the list can be swiped left to reveal a Delete button.
+  var openRow = null;
+  function setOffset(row, x, animate) {
+    row.style.transition = animate ? "transform .18s ease-out" : "none";
+    row.style.transform = x ? "translateX(" + x + "px)" : "";
+  }
+  function closeRow() { if (openRow) { setOffset(openRow, 0, true); delete openRow.dataset.swiped; openRow = null; } }
+  function swipeable(row) {
+    var sx = 0, sy = 0, dx = 0, base = 0, tracking = false, horiz = null;
+    row.addEventListener("touchstart", function (e) {
+      if (openRow && openRow !== row) closeRow();
+      var t = e.touches[0]; sx = t.clientX; sy = t.clientY; dx = 0; horiz = null; tracking = true;
+      base = row.dataset.swiped ? -96 : 0;
+    }, { passive: true });
+    row.addEventListener("touchmove", function (e) {
+      if (!tracking) return;
+      var t = e.touches[0], mx = t.clientX - sx, my = t.clientY - sy;
+      if (horiz === null && (Math.abs(mx) > 8 || Math.abs(my) > 8)) horiz = Math.abs(mx) > Math.abs(my);
+      if (!horiz) return;
+      dx = mx; setOffset(row, Math.max(-120, Math.min(0, base + dx)), false);
+    }, { passive: true });
+    row.addEventListener("touchend", function () {
+      if (!tracking) return; tracking = false;
+      if (!horiz) return;
+      var x = base + dx;
+      if (x < -48) { setOffset(row, -96, true); row.dataset.swiped = "1"; openRow = row; }
+      else { setOffset(row, 0, true); openRow = null; setTimeout(function () { delete row.dataset.swiped; }, 0); }
+    });
+  }
+  function deleteDraft(id) {
+    DB.photosFor(id).then(function (ps) { return Promise.all(ps.map(function (p) { return DB.delPhoto(p.id); })); })
+      .then(function () { return DB.delRecord(id); })
+      .then(function () { openRow = null; toast("Draft deleted."); renderHome(); });
+  }
+  document.addEventListener("touchstart", function (e) { if (openRow && !e.target.closest(".swipe")) closeRow(); }, { passive: true });
+
+
   function renderHome() {
     return DB.allRecords().then(function (all) {
       all.sort(function (a, b) { return b.updated - a.updated; });
@@ -141,11 +179,15 @@
         var st = r.status === "sent" ? (r.practice ? ["draft", "Practice"] : ["sent", "Sent"]) : r.status === "partial" ? ["partial", "Photos pending"] : ["draft", "Draft"];
         var sp = r.species_common_name === "other" ? (r.species_common_name_other || "Other") : (r.species_common_name ? labelFor("species_common_name", r.species_common_name) : "Species not set");
         var bld = r.building_name_and_address === "other" ? r.building_name_and_address_other : (r.building_name_and_address || "").split("/")[0];
-        box.appendChild(el("button", { type: "button", class: "rec", onclick: function () { openRecord(r.id); } }, [
+        var row = el("button", { type: "button", class: "rec", onclick: function () { if (!row.dataset.swiped) openRecord(r.id); } }, [
           el("span", { class: "id", text: r.random_int ? "#" + r.random_int : "No ID yet" }),
           el("span", { class: "pill " + st[0], text: st[1] }),
           el("span", { class: "meta", text: [sp, bld, r._date].filter(Boolean).join(" · ") })
-        ]));
+        ]);
+        if (r.status === "sent" || r.status === "partial") { box.appendChild(row); return; }
+        var del = el("button", { type: "button", class: "swipe-del", text: "Delete", "aria-label": "Delete draft " + (r.random_int || ""), onclick: function () { deleteDraft(r.id); } });
+        box.appendChild(el("div", { class: "swipe" }, [del, row]));
+        swipeable(row);
       });
       $("domainsrc").textContent = "Answer lists: " + domainSource + ".";
       renderPracticeToggle();

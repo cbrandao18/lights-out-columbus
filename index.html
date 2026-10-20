@@ -78,6 +78,9 @@ button:disabled { opacity: 0.5; }
 
 .list { display: grid; gap: 10px; margin-top: 12px; }
 .rec { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 12px 14px; display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; text-align: left; width: 100%; min-height: 0; font-weight: 400; }
+.swipe { position: relative; border-radius: var(--r); overflow: hidden; }
+.swipe .rec { position: relative; z-index: 1; touch-action: pan-y; }
+.swipe-del { position: absolute; top: 0; right: 0; bottom: 0; width: 96px; min-height: 0; border-radius: 0 var(--r) var(--r) 0; background: var(--bad); color: #fff; }
 .rec .id { font: 700 1.05rem var(--font-mono); }
 .rec .meta { color: var(--muted); font-size: 0.9rem; grid-column: 1 / -1; }
 .pill { font-size: 0.75rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; padding: 3px 9px; border-radius: 99px; align-self: start; }
@@ -230,6 +233,7 @@ textarea.summary-out { font: 500 0.88rem var(--font-mono); min-height: 180px; }
   <!-- HOME -->
   <section id="home">
     <div class="list" id="records"></div>
+    <p class="hint" id="swipeHint" style="margin-top:8px">Swipe a draft left to delete it.</p>
     <details style="margin-top:24px">
       <summary>About this app</summary>
       <p class="hint" style="margin-top:8px">Each record is sent to the same place as the Lights Out Columbus v2.0 survey in Survey123. Records and photos are kept on this phone until they are sent, so you can fill one in without signal and send it later. If a photo fails to upload, only that photo is retried; the bird is never entered twice.</p>
