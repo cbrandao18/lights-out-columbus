@@ -244,17 +244,22 @@ textarea.summary-out { font: 500 0.88rem var(--font-mono); min-height: 180px; }
       <span class="lab">Route</span>
       <div class="seg" id="routeSeg"></div>
     </div>
-    <div class="stat" id="shiftStat"></div>
-    <div class="progress" aria-hidden="true"><div id="shiftBar"></div></div>
-    <div class="row"><button type="button" class="primary" id="shiftStart">Start shift</button><button type="button" class="ghost" id="shiftEnd">End shift</button></div>
-    <div class="stopl" id="stops"></div>
     <div class="field">
       <span class="lab">Summary for Discord</span>
       <textarea class="summary-out" id="summaryOut" readonly></textarea>
       <div class="row"><button type="button" class="primary" id="copySummary">Copy summary</button></div>
       <p class="hint">Paste it into the daily thread on Discord.</p>
     </div>
-    <div class="row"><button type="button" class="ghost danger" id="shiftReset">Clear today's checklist</button></div>
+    <details class="res" id="checklist">
+      <summary id="checklistTitle">Stop checklist</summary>
+      <div class="body">
+        <div class="stat" id="shiftStat"></div>
+        <div class="progress" aria-hidden="true"><div id="shiftBar"></div></div>
+        <div class="row"><button type="button" class="primary" id="shiftStart">Start shift</button><button type="button" class="ghost" id="shiftEnd">End shift</button></div>
+        <div class="stopl" id="stops"></div>
+        <div class="row"><button type="button" class="ghost danger" id="shiftReset">Clear today's checklist</button></div>
+      </div>
+    </details>
   </section>
 
   <!-- RESOURCES -->

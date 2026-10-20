@@ -715,6 +715,7 @@
     });
     var done = route.stops.filter(function (st) { return s.checked[s.route + ":" + st[0] + ":" + st[1]]; }).length;
     $("shiftBar").style.width = Math.round(100 * done / route.stops.length) + "%";
+    $("checklistTitle").textContent = "Stop checklist" + (done ? " (" + done + " of " + route.stops.length + ")" : " (optional)");
     $("shiftStart").hidden = !!s.start; $("shiftEnd").hidden = !s.start || !!s.end;
     var list = $("stops"); list.textContent = "";
     route.stops.forEach(function (st) {
@@ -919,6 +920,8 @@
     cur.which_side_of_the_building_was = cmp.side; renderSeg("which_side_of_the_building_was"); save(); stopCompass();
     toast("Window faces " + cmp.side + ".");
   });
+  try { $("checklist").open = store("checklistOpen") === "1"; } catch (e) { /* closed */ }
+  $("checklist").addEventListener("toggle", function () { store("checklistOpen", $("checklist").open ? "1" : "0"); });
   $("shiftStart").addEventListener("click", function () { var s = getShift(); s.start = Date.now(); s.end = null; putShift(s); renderShift(); });
   $("shiftEnd").addEventListener("click", function () { var s = getShift(); s.end = Date.now(); putShift(s); renderShift(); });
   $("shiftReset").addEventListener("click", function () {
