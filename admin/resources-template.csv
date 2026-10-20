@@ -1,0 +1,81 @@
+section,kind,title,text,link
+,quick,Route map,"Both routes, Google Maps",https://www.google.com/maps/d/u/2/edit?mid=1XDbPms_MtWL6VDtREtN_ueRk7hpgfq8&usp=sharing
+,quick,Training video,"Spring 2026, YouTube",https://youtu.be/40FDd_6umb8
+,quick,Specimen tags,Print with QR codes,cards.html
+Reading the schedule,note,,Your name in yellow: you're the transport person for that shift.,
+Reading the schedule,note,,"Cell in red: only one person is signed up, and the survey needs two. These shifts are the highest priority to fill.",
+Reading the schedule,note,,"No one highlighted: either several people can transport, or no one can. Check with your shift partner that morning about who takes the birds to the Ohio Wildlife Center Rehabilitation Clinic or Grange Insurance Audubon Center.",
+Reading the schedule,note,,The schedule link is shared on Discord.,
+Parking,heading,Broad St. route: CCAD large lot,,
+Parking,note,,"Volunteers still park at CCAD, but in the larger lot on the corner of E. Broad St. and Cleveland Ave. (changed fall 2024). The large star is the new lot; the small star is where volunteers parked before.",
+Parking,address,,"60 Cleveland Ave, Columbus, OH 43215",
+Parking,image,,Aerial view of the CCAD lots,resources/parking-broad-st.jpg
+Parking,heading,Nationwide route: FedEx Office lot,,
+Parking,note,,"Park at the FedEx Office Print & Ship Center (changed fall 2024). Use the east side of the lot, near Pearl St., along the building where the star is.",
+Parking,address,,"180 N High St, Columbus, OH 43215",
+Parking,image,,Aerial view of the FedEx Office lot,resources/parking-nationwide.jpg
+Routes,link,Both routes in Google Maps,,https://www.google.com/maps/d/u/2/edit?mid=1XDbPms_MtWL6VDtREtN_ueRk7hpgfq8&usp=sharing
+Routes,heading,Broad St. route,,
+Routes,image,,Broad St. route map. Tap to zoom.,resources/broad-st-route-1.jpg
+Routes,link,Route PDF,,resources/broad-st-route.pdf
+Routes,stops,Broad St. route,,
+Routes,heading,Nationwide route (about 3.4 miles),,
+Routes,image,,Nationwide route map. Tap to zoom.,resources/nationwide-route-1.jpg
+Routes,link,Route PDF,,resources/nationwide-route.pdf
+Routes,stops,Nationwide route,,
+Routes,heading,Building names in the survey,,
+Routes,list,,"Nationwide Arena also covers the box office and Tim Hortons.
+Nationwide Plaza now includes the atrium. William Green Building is still separate.
+Nationwide Marconi is the old Marconi garage. Nationwide CoOperative is its own building.
+Burnham Square Condos are split into West, North and South.
+Not in the list? Pick Other and type the name and address.",
+Finding a bird,note,,"Log every window-collision bird or bat: dead, live, or one that got away. One record per bird.",
+Finding a bird,heading,Live birds,,
+Finding a bird,note,,"Write the unique ID, date, time and address on the bag. That helps with admission at the hospital. The shift's transport person takes them to the Ohio Wildlife Center Rehabilitation Clinic or the Grange Insurance Audubon Center.",
+Finding a bird,link,Ohio Wildlife Center,,https://www.google.com/maps/search/?api=1&query=Ohio+Wildlife+Center+Rehabilitation+Clinic+Columbus+OH
+Finding a bird,link,Grange Audubon Center,,https://www.google.com/maps/search/?api=1&query=Grange+Insurance+Audubon+Center+Columbus+OH
+Finding a bird,heading,Dead birds,,
+Finding a bird,note,,Write the unique ID and date on the bag or specimen tag.,
+Finding a bird,heading,Injured Rock Pigeons,,
+Finding a bird,callout,,"City Bird Rehab accepts live, injured Rock Pigeons found downtown. Message them on Facebook first. They also take porch drop-offs, but send a message so they know it's there.",
+Finding a bird,address,,"3105 Norwood St, Columbus, OH 43224",
+Finding a bird,link,City Bird Rehab on Facebook,,https://www.facebook.com/share/1B5XVgp2Dh/
+Finding a bird,note,,"Ohio Wildlife Center does not rehabilitate non-native species like Rock Pigeons, but will accept them for humane euthanasia.",
+Printouts and guides,link,Specimen tags with QR codes (print),,cards.html
+Printouts and guides,link,Blank specimen tags (PDF),,resources/specimen-tag.pdf
+Printouts and guides,link,Survey123 tutorial,,resources/survey123-tutorial.pdf
+Printouts and guides,link,Spring 2026 training video,,https://youtu.be/40FDd_6umb8
+Printouts and guides,note,,"Tips: when you finish, close the app so GPS stops draining your battery. For two birds at one spot, use Copy to a new bird here and give it a new ID.",
+Broad St. route,stop,1,CCAD,
+Broad St. route,stop,2,"STRS, 275 E Broad",
+Broad St. route,stop,3,"Midland (and courtyard), 250 E Broad",
+Broad St. route,stop,4,"Hexion, 180 E Broad",
+Broad St. route,stop,5,"Empire Building / Athletic Club, 136 E Broad",
+Broad St. route,stop,6,"Chase and Lexi's on Third, 100 E Broad",
+Broad St. route,stop,7,"Key Bank, 88 E Broad",
+Broad St. route,stop,8,"Rhodes Tower, 30 E Broad",
+Broad St. route,stop,9/10,"US Bank, 10 W Broad",
+Broad St. route,stop,10,"8 on the Square, 8 E Broad",
+Broad St. route,stop,11,"LeVeque Tower (and alley walkway), Palace Theater",
+Broad St. route,stop,12,"Huntington Plaza / Gerlach CPA, 37 W Broad",
+Broad St. route,stop,13,"41 S High (Huntington, Porter Wright, ZOUP!) and Wyandotte",
+Broad St. route,stop,14,"Riffe Center, 77 S High",
+Broad St. route,stop,15,State House,
+Broad St. route,stop,16,"Trinity Church, 125 E Broad",
+Broad St. route,stop,17,"PNC, 155 E Broad",
+Broad St. route,stop,18,"Columbus Club, 181 E Broad",
+Broad St. route,stop,19,"Ohio Education Association, 225 E Broad",
+Broad St. route,stop,20,"Catholic Foundation, 257 E Broad",
+Broad St. route,stop,21/22,"STRS, 275 E Broad",
+Broad St. route,stop,23/24,"Capital University, 303 E Broad",
+Broad St. route,stop,25,"US Citizenship & Immigration, 395 E Broad",
+Broad St. route,stop,26,"UMC Family Services, 413 E Broad",
+Broad St. route,stop,28,"Encova Insurance, 471 E Broad",
+Broad St. route,stop,29,"Columbus Museum of Art, 480 E Broad",
+Nationwide route,stop,1,Nationwide atrium,
+Nationwide route,stop,2,Nationwide Retirement Solutions,
+Nationwide route,stop,3,Columbia Gas,
+Nationwide route,stop,4,Sunny St Café / Athletic Club,
+Nationwide route,stop,5,McFerson Commons,
+Nationwide route,stop,6,Marconi Garage,
+Nationwide route,stop,7,Sensenbrenner Park,

@@ -1,6 +1,6 @@
 // Keeps the app usable with no signal. Never caches anything sent to the survey.
-var CACHE = "collision-log-v5";
-var SHELL = ["./", "index.html", "app.js", "domains.js", "manifest.webmanifest", "icon.svg", "icon-180.png", "icon-512.png",
+var CACHE = "collision-log-v6";
+var SHELL = ["./", "index.html", "app.js", "config.js", "domains.js", "manifest.webmanifest", "icon.svg", "icon-180.png", "icon-512.png",
   "vendor/leaflet/leaflet.js", "vendor/leaflet/leaflet.css", "vendor/leaflet/images/marker-icon.png",
   "vendor/leaflet/images/marker-icon-2x.png", "vendor/leaflet/images/marker-shadow.png",
   "resources/logo.png", "resources/parking-broad-st.jpg", "resources/parking-nationwide.jpg", "resources/broad-st-route-1.jpg",

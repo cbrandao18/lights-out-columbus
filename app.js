@@ -375,11 +375,10 @@
   $("tabRes").addEventListener("click", function () { show("res"); });
   $("tabShift").addEventListener("click", function () { show("shift"); });
   // Keep one resource section open at a time so the list stays short.
-  document.querySelectorAll("#resources details").forEach(function (d) {
-    d.addEventListener("toggle", function () {
-      if (d.open) document.querySelectorAll("#resources details").forEach(function (o) { if (o !== d) o.open = false; });
-    });
-  });
+  $("resources").addEventListener("toggle", function (e) {
+    var d = e.target;
+    if (d.tagName === "DETAILS" && d.open) document.querySelectorAll("#resources details").forEach(function (o) { if (o !== d) o.open = false; });
+  }, true);
   function openRecord(id) {
     return Promise.all([DB.getRecord(id), DB.photosFor(id)]).then(function (r) {
       cur = r[0]; curPhotos = r[1] || []; show("edit"); fillForm();
@@ -705,7 +704,9 @@
   function putShift(s) { store(shiftKey(), JSON.stringify(s)); store("lastRoute", s.route); }
   function clock(ts) { return new Date(ts).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }); }
   function renderShift() {
-    var s = getShift(), route = ROUTES[s.route];
+    var s = getShift();
+    if (!ROUTES[s.route]) { s.route = Object.keys(ROUTES)[0]; }
+    var route = ROUTES[s.route];
     var seg = $("routeSeg"); seg.textContent = "";
     Object.keys(ROUTES).forEach(function (k) {
       seg.appendChild(el("button", { type: "button", "aria-pressed": String(k === s.route), text: ROUTES[k].name.replace(" route", ""), onclick: function () {
@@ -757,6 +758,109 @@
     var missed = route.stops.filter(function (st) { return !s.checked[s.route + ":" + st[0] + ":" + st[1]]; });
     if (s.start && missed.length && missed.length <= route.stops.length / 2) lines.push("Not checked: " + missed.map(function (st) { return st[0]; }).join(", "));
     return lines.join("\n");
+  }
+
+  // ---- Resources from a Google Sheet --------------------------------------
+  // Organizers edit a published sheet (see admin/README.md); the built-in page is the fallback.
+  var CONFIG = window.COLLISION_CONFIG || {};
+  function parseCsv(text) {
+    var rows = [], row = [], f = "", q = false;
+    for (var i = 0; i < text.length; i++) {
+      var ch = text[i];
+      if (q) {
+        if (ch === '"') { if (text[i + 1] === '"') { f += '"'; i++; } else q = false; } else f += ch;
+      } else if (ch === '"') q = true;
+      else if (ch === ",") { row.push(f); f = ""; }
+      else if (ch === "\n" || ch === "\r") { if (ch === "\r" && text[i + 1] === "\n") i++; row.push(f); rows.push(row); row = []; f = ""; }
+      else f += ch;
+    }
+    if (f || row.length) { row.push(f); rows.push(row); }
+    var head = (rows.shift() || []).map(function (h) { return h.trim().toLowerCase(); });
+    return rows.filter(function (r) { return r.some(function (c) { return c.trim(); }); }).map(function (r) {
+      var o = {}; head.forEach(function (h, i) { o[h] = (r[i] || "").trim(); }); return o;
+    });
+  }
+  function safeHref(u) {
+    u = String(u || "").trim();
+    if (/^https?:\/\//i.test(u)) return u;
+    if (/^[\w.\/-]+(\?[\w=&.-]*)?(#[\w-]*)?$/.test(u) && u.indexOf("..") < 0) return u; // a file that ships with the app
+    return null;
+  }
+  function imgSrc(u) {
+    var m = String(u).match(/drive\.google\.com\/(?:file\/d\/|open\?id=|uc\?(?:export=\w+&)?id=)([\w-]+)/);
+    return m ? "https://drive.google.com/thumbnail?id=" + m[1] + "&sz=w1600" : safeHref(u);
+  }
+  function mapLinks(addr) {
+    var q = encodeURIComponent(addr);
+    return el("div", { class: "links" }, [
+      el("a", { href: "https://maps.apple.com/?q=" + q, target: "_blank", rel: "noopener", text: "Apple Maps" }),
+      el("a", { href: "https://www.google.com/maps/search/?api=1&query=" + q, target: "_blank", rel: "noopener", text: "Google Maps" })]);
+  }
+  function slug(s) { return String(s).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""); }
+  function renderResources(rows) {
+    var stopsBy = {}, order = [], bySec = {}, quick = [];
+    rows.forEach(function (r) {
+      var kind = (r.kind || "").toLowerCase();
+      if (kind === "stop") { (stopsBy[r.section] = stopsBy[r.section] || []).push([r.title, r.text]); return; }
+      if (kind === "quick") { quick.push(r); return; }
+      if (!r.section) return;
+      if (!bySec[r.section]) { bySec[r.section] = []; order.push(r.section); }
+      bySec[r.section].push(r);
+    });
+    if (!order.length && !quick.length) return false;
+    var box = $("resources"), logo = box.querySelector(".logo");
+    box.textContent = ""; if (logo) box.appendChild(logo);
+    if (quick.length) {
+      var qb = el("div", { class: "quick" });
+      quick.forEach(function (r, i) { var h = safeHref(r.link); if (h) qb.appendChild(el("a", { class: i === 0 ? "hot" : "", href: h, target: "_blank", rel: "noopener" }, [r.title, el("span", { text: r.text })])); });
+      box.appendChild(qb);
+    }
+    order.forEach(function (sec) {
+      var body = el("div", { class: "body" }), links = null;
+      bySec[sec].forEach(function (r) {
+        var kind = (r.kind || "note").toLowerCase();
+        if (kind !== "link") links = null;
+        if (kind === "heading") body.appendChild(el("h3", { text: r.title || r.text }));
+        else if (kind === "note") body.appendChild(el("p", { text: r.text || r.title }));
+        else if (kind === "callout") body.appendChild(el("div", { class: "callout" }, [el("p", { text: r.text || r.title })]));
+        else if (kind === "list") body.appendChild(el("ul", {}, (r.text || "").split(/\n/).filter(Boolean).map(function (l) { return el("li", { text: l.replace(/^[-•*]\s*/, "") }); })));
+        else if (kind === "address") { body.appendChild(el("p", { class: "addr", text: r.text || r.title })); body.appendChild(mapLinks(r.text || r.title)); }
+        else if (kind === "image") {
+          var src = imgSrc(r.link); if (!src) return;
+          body.appendChild(el("figure", {}, [el("a", { href: src, target: "_blank", rel: "noopener" }, [el("img", { src: src, alt: r.text || r.title || "", loading: "lazy" })]), r.text ? el("figcaption", { text: r.text }) : null]));
+        } else if (kind === "link") {
+          var h = safeHref(r.link); if (!h) return;
+          if (!links) { links = el("div", { class: "links" }); body.appendChild(links); }
+          links.appendChild(el("a", { href: h, target: "_blank", rel: "noopener", text: r.title || r.link }));
+        } else if (kind === "stops") {
+          var st = stopsBy[r.title] || [];
+          if (!st.length) return;
+          body.appendChild(el("div", { class: "stops" }, [el("table", {}, [
+            el("thead", {}, [el("tr", {}, [el("th", { text: "#" }), el("th", { text: "Stop" })])]),
+            el("tbody", {}, st.map(function (s) { return el("tr", {}, [el("td", { text: s[0] }), el("td", { text: s[1] })]); }))])]));
+        }
+      });
+      box.appendChild(el("details", { class: "res", id: "res-" + slug(sec) }, [el("summary", { text: sec }), body]));
+    });
+    var names = Object.keys(stopsBy);
+    if (names.length) {
+      ROUTES = {};
+      names.forEach(function (n) { ROUTES[slug(n)] = { name: n, stops: stopsBy[n] }; });
+      if (!$("shift").hidden) renderShift();
+    }
+    return true;
+  }
+  function loadResources() {
+    var url = CONFIG.resourcesCsv;
+    if (!url) return;
+    var cached = store("resources_csv");
+    if (cached) { try { renderResources(parseCsv(cached)); } catch (e) { /* keep built-in page */ } }
+    if (!navigator.onLine) return;
+    fetch(url, { cache: "no-store" }).then(function (r) { if (!r.ok) throw new Error(r.status); return r.text(); }).then(function (t) {
+      var rows = parseCsv(t);
+      if (!rows.length || !("kind" in rows[0])) return;
+      if (renderResources(rows)) store("resources_csv", t);
+    }).catch(function () { /* offline or not published: keep what we have */ });
   }
 
   // ---- Theme --------------------------------------------------------------
@@ -859,7 +963,7 @@
   if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(function () {});
   if ("serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("sw.js").catch(function () {});
 
-  applyTheme(); updateNet(); refreshDomains(); renderHome();
+  applyTheme(); updateNet(); refreshDomains(); renderHome(); loadResources();
   var scanned = idFromText(params.get("id"));
   if (scanned) {
     try { history.replaceState(null, "", location.pathname); } catch (e) { /* keep the URL */ }
