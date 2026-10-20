@@ -895,6 +895,58 @@
     $("lightBtn").setAttribute("aria-pressed", "false"); $("lightBtn").textContent = "Light";
   }
 
+  // ---- Ask in Discord -----------------------------------------------------
+  // With a channel webhook saved on this phone, posts straight to the ID-help channel.
+  // Otherwise hands the photos and question to the share sheet, so the volunteer posts as themselves.
+  var WEBHOOK_RE = /^https:\/\/(?:canary\.|ptb\.)?discord(?:app)?\.com\/api\/webhooks\/\d+\/[\w-]+$/;
+  function webhook() { var w = store("webhook") || ""; return WEBHOOK_RE.test(w) ? w : ""; }
+  function askText(r) {
+    var guess = r.species_common_name === "other" ? r.species_common_name_other : (r.species_common_name ? labelFor("species_common_name", r.species_common_name) : "");
+    var bld = r.building_name_and_address === "other" ? r.building_name_and_address_other : (r.building_name_and_address || "").split("/")[0];
+    var parts = ["Can you ID?" + (guess ? " My guess: " + guess + "." : "")];
+    var where = [r.found_as, bld, r._date ? r._date + (r.time ? " " + r.time : "") : ""].filter(Boolean).join(", ");
+    if (where) parts.push(where);
+    if (r.random_int) parts.push("Bag #" + r.random_int);
+    return parts.join(" · ");
+  }
+  function askDiscord() {
+    if (!cur) return;
+    var text = askText(cur), photos = curPhotos.slice(0, 4);
+    var files = photos.map(function (ph) { return new File([ph.blob], ph.name, { type: ph.type || "image/jpeg" }); });
+    if (!files.length) toast("Tip: add a photo first so people can see the bird.");
+    var hook = webhook();
+    if (hook) {
+      if (!navigator.onLine) { toast("You're offline. Try again when you have signal."); return; }
+      var b = $("askDiscord"); b.disabled = true; b.textContent = "Sending to Discord…";
+      var fd = new FormData();
+      fd.append("payload_json", JSON.stringify({ content: text, username: (store("names") || "Collision Log").slice(0, 80), allowed_mentions: { parse: [] } }));
+      files.forEach(function (f, i) { fd.append("files[" + i + "]", f, f.name); });
+      fetch(hook, { method: "POST", body: fd }).then(function (r) {
+        if (!r.ok) throw new Error(r.status);
+        toast("Posted to the ID-help channel.");
+      }).catch(function () {
+        toast("Couldn't post to Discord. Check the webhook link under About this app.");
+      }).finally(function () { b.disabled = false; b.textContent = "Not sure? Ask in Discord"; });
+      return;
+    }
+    var data = { text: text };
+    if (files.length && navigator.canShare && navigator.canShare({ files: files })) data.files = files;
+    if (navigator.share) {
+      navigator.share(data).catch(function (e) { if (e && e.name !== "AbortError") copyAsk(text); });
+    } else copyAsk(text);
+  }
+  function copyAsk(text) {
+    var ok = function () { toast("Question copied. Paste it in the Discord ID channel with your photo."); };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(ok, function () { toast(text); });
+    else toast(text);
+  }
+  function renderWebhook() {
+    var w = webhook();
+    $("webhook").value = w ? "Saved" : "";
+    $("webhookHint").textContent = w ? "Ask in Discord posts straight to the ID-help channel. Clear the box and tap Save to stop." :
+      "Without this, Ask in Discord opens your phone's share sheet so you can pick Discord and the channel yourself.";
+  }
+
   // ---- Wiring -------------------------------------------------------------
   function updateNet() {
     var n = $("net");
@@ -910,6 +962,15 @@
     cur.random_int = genId(); $("random_int").value = cur.random_int; save();
   });
   $("gps").addEventListener("click", useGps);
+  $("askDiscord").addEventListener("click", askDiscord);
+  $("webhook").addEventListener("focus", function () { if ($("webhook").value === "Saved") $("webhook").value = ""; });
+  $("webhookSave").addEventListener("click", function () {
+    var v = $("webhook").value.trim();
+    if (v === "Saved") return;
+    if (v && !WEBHOOK_RE.test(v)) { toast("That doesn't look like a Discord webhook link."); return; }
+    try { if (v) localStorage.setItem("webhook", v); else localStorage.removeItem("webhook"); } catch (e) { /* storage blocked */ }
+    renderWebhook(); toast(v ? "Discord channel saved on this phone." : "Discord channel removed.");
+  });
   $("lightBtn").addEventListener("click", function () { if ($("lightBtn").getAttribute("aria-pressed") === "true") lightOff(); else lightOn(); });
   $("lightOff").addEventListener("click", lightOff);
   $("timeNow").addEventListener("click", function () { cur.time = nowTime(); $("time").value = cur.time; save(); });
@@ -967,6 +1028,12 @@
   if ("serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("sw.js").catch(function () {});
 
   applyTheme(); updateNet(); refreshDomains(); renderHome(); loadResources();
+  var hookParam = params.get("discord");
+  if (hookParam && WEBHOOK_RE.test(hookParam)) {
+    store("webhook", hookParam); toast("Discord ID-help channel saved on this phone.");
+    try { history.replaceState(null, "", location.pathname); } catch (e) { /* keep the URL */ }
+  }
+  renderWebhook();
   var scanned = idFromText(params.get("id"));
   if (scanned) {
     try { history.replaceState(null, "", location.pathname); } catch (e) { /* keep the URL */ }
