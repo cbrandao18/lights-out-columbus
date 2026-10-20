@@ -747,7 +747,7 @@
     var when = s.start ? clock(s.start) + (s.end ? "–" + clock(s.end) : "") : "";
     lines.push(route.name + ", " + d.toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" }) + (when ? ", " + when : ""));
     var who = store("names"); if (who) lines.push("Volunteer: " + who);
-    lines.push("Stops checked: " + done + " of " + route.stops.length);
+    if (done) lines.push("Stops checked: " + done + " of " + route.stops.length);
     if (!birds.length) lines.push("Birds: none found");
     else {
       var counts = {};
