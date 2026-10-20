@@ -1,11 +1,10 @@
 // Keeps the app usable with no signal. Never caches anything sent to the survey.
-var CACHE = "collision-log-v8";
+var CACHE = "collision-log-v9";
 var SHELL = ["./", "index.html", "app.js", "config.js", "domains.js", "manifest.webmanifest", "icon.svg", "icon-180.png", "icon-512.png",
   "vendor/leaflet/leaflet.js", "vendor/leaflet/leaflet.css", "vendor/leaflet/images/marker-icon.png",
   "vendor/leaflet/images/marker-icon-2x.png", "vendor/leaflet/images/marker-shadow.png",
   "resources/logo.png", "resources/parking-broad-st.jpg", "resources/parking-nationwide.jpg", "resources/broad-st-route-1.jpg",
-  "resources/nationwide-route-1.jpg", "resources/specimen-tag.pdf",
-  "cards.html", "vendor/qrcode/qrcode.js", "vendor/jsqr/jsQR.js"];
+  "resources/nationwide-route-1.jpg", "resources/specimen-tag.pdf"];
 
 self.addEventListener("install", function (e) {
   e.waitUntil(caches.open(CACHE).then(function (c) {

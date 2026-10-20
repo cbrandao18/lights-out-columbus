@@ -1,7 +1,7 @@
 section,kind,title,text,link
 ,quick,Route map,"Both routes, Google Maps",https://www.google.com/maps/d/u/2/edit?mid=1XDbPms_MtWL6VDtREtN_ueRk7hpgfq8&usp=sharing
 ,quick,Training video,"Spring 2026, YouTube",https://youtu.be/40FDd_6umb8
-,quick,Specimen tags,Print with QR codes,cards.html
+,quick,Specimen tags,Printable PDF,resources/specimen-tag.pdf
 Reading the schedule,note,,Your name in yellow: you're the transport person for that shift.,
 Reading the schedule,note,,"Cell in red: only one person is signed up, and the survey needs two. These shifts are the highest priority to fill.",
 Reading the schedule,note,,"No one highlighted: either several people can transport, or no one can. Check with your shift partner that morning about who takes the birds to the Ohio Wildlife Center Rehabilitation Clinic or Grange Insurance Audubon Center.",
@@ -41,8 +41,7 @@ Finding a bird,callout,,"City Bird Rehab accepts live, injured Rock Pigeons foun
 Finding a bird,address,,"3105 Norwood St, Columbus, OH 43224",
 Finding a bird,link,City Bird Rehab on Facebook,,https://www.facebook.com/share/1B5XVgp2Dh/
 Finding a bird,note,,"Ohio Wildlife Center does not rehabilitate non-native species like Rock Pigeons, but will accept them for humane euthanasia.",
-Printouts and guides,link,Specimen tags with QR codes (print),,cards.html
-Printouts and guides,link,Blank specimen tags (PDF),,resources/specimen-tag.pdf
+Printouts and guides,link,"Specimen tags (print, 6 per page)",,resources/specimen-tag.pdf
 Printouts and guides,link,Survey123 tutorial,,resources/survey123-tutorial.pdf
 Printouts and guides,link,Spring 2026 training video,,https://youtu.be/40FDd_6umb8
 Printouts and guides,note,,"Tips: when you finish, close the app so GPS stops draining your battery. For two birds at one spot, use Copy to a new bird here and give it a new ID.",

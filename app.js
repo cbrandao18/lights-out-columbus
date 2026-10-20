@@ -299,23 +299,6 @@
       throw e;
     });
   }
-  // Tags printed from cards.html carry a QR code with the app link and ?id=NNNNNN.
-  function idFromText(t) {
-    t = String(t || "").trim();
-    try { var u = new URL(t); var q = u.searchParams.get("id"); if (q && /^\d{4,10}$/.test(q)) return q; } catch (e) { /* not a link */ }
-    return /^\d{4,10}$/.test(t) ? t : null;
-  }
-  function scanQr(blob) {
-    if (!window.jsQR) return Promise.resolve(null);
-    return decode(blob).then(function (src) {
-      var s = Math.min(1, 1600 / Math.max(src.width, src.height));
-      var c = document.createElement("canvas"); c.width = Math.round(src.width * s); c.height = Math.round(src.height * s);
-      var g = c.getContext("2d", { willReadFrequently: true }); g.drawImage(src, 0, 0, c.width, c.height);
-      var d = g.getImageData(0, 0, c.width, c.height);
-      var hit = jsQR(d.data, c.width, c.height, { inversionAttempts: "dontInvert" });
-      return hit ? idFromText(hit.data) : null;
-    }).catch(function () { return null; });
-  }
   function addFiles(files) {
     var list = Array.from(files || []);
     if (!list.length) return;
@@ -324,12 +307,6 @@
     list.reduce(function (p, f) {
       return p.then(function () {
         return toJpeg(f).then(function (blob) {
-          if (cur.random_int) return blob;
-          return scanQr(blob).then(function (id) {
-            if (id && !cur.random_int) { cur.random_int = id; $("random_int").value = id; save(); toast("Read ID " + id + " from the tag in the photo."); }
-            return blob;
-          });
-        }).then(function (blob) {
           n += 1;
           var base = (cur.random_int || "bird").replace(/[^\w-]/g, "");
           var ph = { id: uuid(), recId: cur.id, blob: blob, name: base + "_" + n + (blob.type === "image/png" ? ".png" : ".jpg"), type: blob.type || "image/jpeg", uploaded: false, added: Date.now() };
@@ -1034,18 +1011,6 @@
     try { history.replaceState(null, "", location.pathname); } catch (e) { /* keep the URL */ }
   }
   renderWebhook();
-  var scanned = idFromText(params.get("id"));
-  if (scanned) {
-    try { history.replaceState(null, "", location.pathname); } catch (e) { /* keep the URL */ }
-    DB.allRecords().then(function (all) {
-      var hit = all.find(function (r) { return String(r.random_int) === scanned; });
-      if (hit) { openRecord(hit.id); toast("Opened your record for #" + scanned + "."); return; }
-      return startNew().then(function () {
-        cur.random_int = scanned; $("random_int").value = scanned; save();
-        toast("Tag #" + scanned + " scanned. Finding your location…");
-        useGps();
-      });
-    });
-  } else if (location.hash === "#resources" || store("tab") === "res") show("res");
+  if (location.hash === "#resources" || store("tab") === "res") show("res");
   else if (location.hash === "#shift" || store("tab") === "shift") show("shift");
 })();
