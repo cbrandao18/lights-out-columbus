@@ -264,7 +264,7 @@
     ["species_common_name", "building_name_and_address"].forEach(renderPicker);
     var lock = locked();
     ["random_int", "names", "notes", "_date", "time", "genId", "gps", "pickLib", "pickCam"].forEach(function (k) { $(k).disabled = lock; });
-    $("reviewBtn").textContent = cur.status === "partial" ? "Retry photos" : lock ? "Already sent" : "Review & send";
+    $("reviewBtn").textContent = cur.status === "partial" ? "Share photos" : lock ? "Already sent" : "Review & send";
     $("reviewBtn").disabled = cur.status === "sent";
     $("delBtn").textContent = lock ? "Remove from this phone" : "Delete this record";
     $("bldSuggest").hidden = true; $("compassBtn").disabled = lock; $("timeNow").disabled = lock;
@@ -459,56 +459,97 @@
       throw e;
     }).finally(function () { if (t) clearTimeout(t); });
   }
-  function sendFeature(r, log) {
-    if (r.remote && r.remote.objectId) return Promise.resolve(r.remote);
-    log("Sending bird #" + r.random_int + "…");
-    var body = new URLSearchParams();
-    body.set("f", "json");
-    body.set("adds", JSON.stringify([feature(r)]));
-    body.set("useGlobalIds", "true");
-    body.set("rollbackOnFailure", "true");
-    return post(LAYER + "/applyEdits", body).then(function (j) {
+  // The layer lets the public add records but not change them, so photos must go in the same
+  // applyEdits call that creates the bird (as Survey123 does), not as later addAttachment calls.
+  var MAX_SEND_BYTES = 1500 * 1024;
+  function b64(blob) {
+    return new Promise(function (res, rej) {
+      var fr = new FileReader();
+      fr.onload = function () { res(String(fr.result).split(",")[1]); };
+      fr.onerror = function () { rej(fr.error); };
+      fr.readAsDataURL(blob);
+    });
+  }
+  function shrink(ph) {
+    // Keep each photo modest so one request carrying the bird and all its photos stays small.
+    if (ph.blob.size <= MAX_SEND_BYTES) return Promise.resolve(ph.blob);
+    return decode(ph.blob).then(function (src) {
+      var sc = Math.min(1, 2048 / Math.max(src.width, src.height));
+      var c = document.createElement("canvas"); c.width = Math.round(src.width * sc); c.height = Math.round(src.height * sc);
+      c.getContext("2d").drawImage(src, 0, 0, c.width, c.height);
+      return new Promise(function (res) { c.toBlob(function (b) { res(b && b.size < ph.blob.size ? b : ph.blob); }, "image/jpeg", 0.8); });
+    }).catch(function () { return ph.blob; });
+  }
+  function attachmentAdds(r, photos) {
+    return photos.reduce(function (p, ph) {
+      return p.then(function (list) {
+        return shrink(ph).then(b64).then(function (data) {
+          ph.sendGlobalId = ph.sendGlobalId || "{" + uuid().toUpperCase() + "}";
+          list.push({ globalId: ph.sendGlobalId, parentGlobalId: r.globalid, contentType: "image/jpeg", name: ph.name.replace(/\.png$/i, ".jpg"), data: data });
+          return list;
+        });
+      });
+    }, Promise.resolve([]));
+  }
+  function sendRecord(r, photos, log) {
+    log("Sending bird #" + r.random_int + (photos.length ? " with " + photos.length + " photo" + (photos.length > 1 ? "s" : "") : "") + "…");
+    return attachmentAdds(r, photos).then(function (atts) {
+      var kb = Math.round(atts.reduce(function (n, a) { return n + a.data.length * 0.75; }, 0) / 1024);
+      if (atts.length) log("Photos ready (" + kb + " KB). Uploading…");
+      var fd = new FormData();
+      fd.append("f", "json");
+      fd.append("adds", JSON.stringify([feature(r)]));
+      if (atts.length) fd.append("attachments", JSON.stringify({ adds: atts }));
+      fd.append("useGlobalIds", "true");
+      fd.append("rollbackOnFailure", "true");
+      return post(LAYER + "/applyEdits", fd, 180000);
+    }).then(function (j) {
       var res = j.addResults && j.addResults[0];
       if (!res || !res.success) {
         var msg = res && res.error ? res.error.description : "The survey didn't accept the record.";
         throw new Error(msg);
       }
+      var attRes = (j.attachments && j.attachments.addResults) || [];
+      var bad = attRes.filter(function (a) { return a && a.success === false; });
+      if (bad.length) throw new Error("The survey didn't accept the photos: " + ((bad[0].error && bad[0].error.description) || "unknown reason"));
       r.remote = { objectId: res.objectId, globalId: res.globalId || r.globalid, at: Date.now() };
-      log("Bird saved in the survey (record " + res.objectId + ").");
-      return DB.putRecord(r).then(function () { return r.remote; });
+      photos.forEach(function (ph) { ph.uploaded = true; });
+      log("Bird saved in the survey (record " + res.objectId + ")" + (photos.length ? " with its photos." : "."));
+      return Promise.all(photos.map(function (ph) { return DB.putPhoto(ph); })).then(function () { return DB.putRecord(r); });
     }).catch(function (e) {
-      // Each record carries its own GlobalID, so a resend after a dropped reply is refused instead of duplicated.
+      // Each record carries its own GlobalID and the call is all-or-nothing, so a resend after a
+      // dropped reply is refused as a duplicate: the bird and its photos are already in.
       if (/duplicate|unique|already exist|primary key/i.test(e.message)) {
-        throw new Error("The survey already has this exact record (an earlier send went through but the reply was lost). It was not entered twice. Photos for it need to go to the survey's admin.");
+        r.remote = r.remote || { objectId: null, globalId: r.globalid, at: Date.now() };
+        photos.forEach(function (ph) { ph.uploaded = true; });
+        log("The survey already has this bird and its photos from an earlier try. Nothing was entered twice.");
+        return Promise.all(photos.map(function (ph) { return DB.putPhoto(ph); })).then(function () { return DB.putRecord(r); });
       }
       throw e;
     });
   }
-  function sendPhoto(r, ph, i, total, log) {
-    log("Uploading photo " + i + " of " + total + " (" + Math.round(ph.blob.size / 1024) + " KB)…");
-    var fd = new FormData();
-    fd.append("f", "json");
-    fd.append("attachment", ph.blob, ph.name);
-    return post(LAYER + "/" + r.remote.objectId + "/addAttachment", fd, 120000).then(function (j) {
-      var res = j.addAttachmentResult;
-      if (!res || !res.success) throw new Error((res && res.error && res.error.description) || "Photo was not accepted.");
-      ph.uploaded = true; ph.attachmentId = res.objectId;
-      log("Photo " + i + " uploaded.");
-      return DB.putPhoto(ph);
+  function sendAll(r, log, opts) {
+    if (practice()) return practiceSend(r, log);
+    var todo = curPhotos.filter(function (p) { return !p.uploaded; });
+    if (r.remote) {
+      // Sent by an older version of the app, which added photos separately. The survey won't take
+      // photos for an existing record, so they have to go to the admin.
+      log("This bird is already in the survey, but the survey won't accept photos added afterward. Use Share photos to send them to the survey admin.");
+      return Promise.resolve(todo.length);
+    }
+    var photos = opts && opts.withoutPhotos ? [] : todo;
+    return sendRecord(r, photos, log).then(function () {
+      var left = curPhotos.filter(function (p) { return !p.uploaded; }).length;
+      r.status = left ? "partial" : "sent";
+      return DB.putRecord(r).then(function () { return left; });
     });
   }
-  function sendAll(r, log) {
-    if (practice()) return practiceSend(r, log);
-    return sendFeature(r, log).then(function () {
-      var todo = curPhotos.filter(function (p) { return !p.uploaded; });
-      var failed = 0;
-      return todo.reduce(function (p, ph, i) {
-        return p.then(function () { return sendPhoto(r, ph, i + 1, todo.length, log).catch(function (e) { failed += 1; log("Photo " + (i + 1) + " failed: " + e.message); }); });
-      }, Promise.resolve()).then(function () {
-        r.status = failed ? "partial" : "sent";
-        return DB.putRecord(r).then(function () { return failed; });
-      });
-    });
+  function sharePhotos(r) {
+    var files = curPhotos.filter(function (p) { return !p.uploaded; }).map(function (ph) { return new File([ph.blob], ph.name, { type: ph.type || "image/jpeg" }); });
+    var text = "Photos for Lights Out Columbus bird #" + r.random_int + (r.remote && r.remote.objectId ? " (survey record " + r.remote.objectId + ")" : "") + ", " + r._date + ".";
+    if (files.length && navigator.canShare && navigator.canShare({ files: files }) && navigator.share) {
+      navigator.share({ files: files, text: text }).catch(function () {});
+    } else toast("This browser can't share files. Save the photos from your camera roll and send them to the admin.");
   }
   function practiceSend(r, log) {
     log("PRACTICE MODE: nothing is sent.");
@@ -548,20 +589,27 @@
     if (!curPhotos.length) body.appendChild(el("p", { class: "hint", text: "No photos attached. You can still send." }));
     if (practice()) body.appendChild(el("p", { class: "hint", html: "<b>Practice mode is on.</b> This shows exactly what would be sent without sending it. Turn it off under <i>About this app</i> on the home screen." }));
     var log = el("div", { class: "log", hidden: "" });
-    var go = el("button", { type: "button", class: "primary", text: practice() ? "Run practice send" : cur.status === "partial" ? "Retry photos" : "Send now" });
+    var go = el("button", { type: "button", class: "primary", text: practice() ? "Run practice send" : cur.status === "partial" ? "Share photos" : "Send now" });
     var back = el("button", { type: "button", class: "ghost", text: "Not yet", onclick: closeSheet });
     var row = el("div", { class: "row" }, [back, go]);
     body.appendChild(log); body.appendChild(row);
     function write(s) { log.hidden = false; log.textContent += s + "\n"; log.scrollTop = log.scrollHeight; }
-    go.addEventListener("click", function () {
+    if (cur.status === "partial") {
+      write("This bird is in the survey, but its photos aren't. The survey won't accept photos added to a record afterward, so send them to the survey admin with the bird's ID.");
+      go.addEventListener("click", function () { sharePhotos(cur); });
+      body.appendChild(log); body.appendChild(row);
+      $("sheet").hidden = false; return;
+    }
+    function run(opts) {
       if (!practice() && !navigator.onLine) { write("You're offline. The record is saved on this phone; send it when you have signal."); return; }
       go.disabled = true; back.disabled = true;
+      var np = row.querySelector(".nophotos"); if (np) np.disabled = true;
       store("names", cur.names || "");
       var wasPractice = practice();
-      sendAll(cur, write).then(function (failed) {
+      sendAll(cur, write, opts).then(function (failed) {
         back.disabled = false; back.textContent = "Close";
         if (wasPractice) { write("\nPractice run finished. The record is still a draft."); go.disabled = false; return; }
-        if (failed) { write("\n" + failed + " photo(s) didn't upload. The bird is saved; tap Retry photos to send only those."); go.textContent = "Retry photos"; go.disabled = false; }
+        if (failed) { write("\nThe bird is saved without " + failed + " photo(s). Use Share photos to send them to the survey admin."); go.textContent = "Share photos"; go.disabled = false; go.onclick = function (e) { e.stopImmediatePropagation(); sharePhotos(cur); }; }
         else {
           write("\nAll done. Write #" + cur.random_int + " on the bag if you haven't.");
           row.textContent = "";
@@ -573,8 +621,15 @@
         write("Not sent: " + e.message);
         write("Nothing was lost. The record is saved on this phone.");
         go.disabled = false; back.disabled = false; go.textContent = "Try again";
+        // A rejection from the survey itself (not a dropped connection) may be about the photos.
+        var network = /reach the survey|Timed out/.test(e.message);
+        if (!network && curPhotos.some(function (p) { return !p.uploaded; }) && !row.querySelector(".nophotos")) {
+          write("If it keeps failing, you can send the bird now and share the photos with the admin.");
+          row.appendChild(el("button", { type: "button", class: "ghost nophotos", text: "Send without photos", onclick: function () { this.remove(); run({ withoutPhotos: true }); } }));
+        }
       });
-    });
+    }
+    go.addEventListener("click", function () { if (!go.onclick) run(); });
     $("sheet").hidden = false;
   }
 
