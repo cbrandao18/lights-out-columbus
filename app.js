@@ -408,7 +408,7 @@
     return DB.putRecord(cur).then(function () { show("edit"); fillForm(); if (!base) $("random_int").focus(); });
   }
   function save() { if (cur && !locked()) return DB.putRecord(cur); return Promise.resolve(); }
-  function closeEdit() { return save().then(function () { cur = null; curPhotos = []; show("home"); return renderHome(); }); }
+  function closeEdit() { grabForm(); return save().then(function () { cur = null; curPhotos = []; show("home"); return renderHome(); }); }
 
   // ---- Validation & payload ----------------------------------------------
   function problems(r) {
@@ -1020,7 +1020,16 @@
     n.className = "net" + (navigator.onLine ? "" : " off");
     n.textContent = (navigator.onLine ? "Online" : "Offline: saving on phone") + (practice() ? " · Practice" : "");
   }
-  TEXT.forEach(function (k) { $(k).addEventListener("input", function () { cur[k] = $(k).value; if (k === "names") store("names", cur.names); save(); }); });
+  TEXT.forEach(function (k) {
+    // "change" and "blur" too, in case iOS skips an input event (autofill, dictation, keyboard dismissed early).
+    ["input", "change", "blur"].forEach(function (ev) {
+      $(k).addEventListener(ev, function () { if (!cur || locked()) return; cur[k] = $(k).value; if (k === "names") store("names", cur.names); save(); });
+    });
+  });
+  // Catch anything still in the form when the phone switches apps or closes the page.
+  function grabForm() { if (cur && !locked() && !$("edit").hidden) TEXT.forEach(function (k) { cur[k] = $(k).value; }); }
+  document.addEventListener("visibilitychange", function () { if (document.visibilityState === "hidden") { grabForm(); save(); } });
+  window.addEventListener("pagehide", function () { grabForm(); save(); });
   $("_date").addEventListener("change", function () { cur._date = $("_date").value; save(); });
   $("time").addEventListener("change", function () { cur.time = $("time").value; save(); });
   $("genId").addEventListener("click", function () {
